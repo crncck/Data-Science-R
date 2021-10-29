@@ -1,0 +1,261 @@
+---
+title: "DATA SCIENCE AND ANALYTICS"
+author: "Ayşe Ceren Çiçek"
+output: 
+  pdf_document: default
+  html_document: default
+  word_document: default
+subtitle: Week 2
+font-family: Gill Sans
+---
+
+# Data Transformation
+
+Most of the code examples written down below, taken from this website https://r4ds.had.co.nz/transform.html
+
+<script type="text/javascript">
+  // When the document is fully rendered...
+  $(document).ready(function() {
+    // ...select all header elements...
+    $('h1, h2, h3, h4, h5').each(function() {
+      // ...and add an id to them corresponding to their 'titles'
+      $(this).attr('id', $(this).html());
+    });
+  });
+</script>
+
+## TABLE OF CONTENTS
+
+
+- <a href="#Import libraries">Importing Libraries</a><br>
+- <a href="#Dataset">Dataset Informations</a><br>
+- <a href="#dplyr Basics">dplyr Basics</a><br>
+  - <a href="#Filter">Filter</a><br>
+    - <a href="#Logical Operators">Logical Operators</a><br>
+    - <a href="#Missing Values">Missing Values</a><br>
+  - <a href="#Arrange">Arrange</a><br>
+  - <a href="#Select">Select</a><br>
+  - <a href="#Mutate">Mutate</a><br>
+  - <a href="#Summarise">Summarise</a><br>
+
+
+## Import libraries
+
+```{r, warning=FALSE,message=FALSE,error=FALSE, results='hide'}
+#install.packages("nycflights13")
+library(nycflights13)
+library(tidyverse)
+```
+## Dataset
+
+The dataset contains data for all flights that departed NYC (i.e. JFK, LGA or EWR) in 2013. Column informations are listed below:
+
+- year, month, day: Date of departure.
+
+- dep_time, arr_time: Actual departure and arrival times (format HHMM or HMM), local tz.
+
+- sched_dep_time, sched_arr_time: Scheduled departure and arrival times (format HHMM or HMM), local tz.
+
+- dep_delay, arr_delay: Departure and arrival delays, in minutes. Negative times represent early departures/arrivals.
+
+- carrier: Two letter carrier abbreviation. See airlines to get name.
+
+- flight: Flight number.
+
+- tailnum: Plane tail number. See planes for additional metadata.
+
+- origin, dest: Origin and destination. See airports for additional metadata.
+
+- air_time: Amount of time spent in the air, in minutes.
+
+- distance: Distance between airports, in miles.
+
+- hour, minute: Time of scheduled departure broken into hour and minutes.
+
+- time_hour: Scheduled date and hour of the flight as a POSIXct date. Along with origin, can be used to join flights data to weather data.
+
+```{r}
+flights
+```
+
+To see the whole dataset, you can run View(flights).
+
+```{r}
+summary(flights)
+```
+
+
+## dplyr Basics 
+
+- Pick observations by their values (filter()).
+- Reorder the rows (arrange()).
+- Pick variables by their names (select()).
+- Create new variables with functions of existing variables (mutate()).
+- Collapse many values down to a single summary (summa rize()).
+
+
+### Filter
+
+filter() allows you to subset observations based on their values.
+
+We can select all flights on May 1st with.
+
+```{r}
+filter(flights, month == 5, day == 1)
+```
+
+```{r}
+(june25 <- filter(flights, month == 6, day == 25))
+```
+
+#### Logical Operators
+
+```{r}
+filter(flights, month == 6 | month == 12)
+```
+
+x %in% y --> this will select every row where x is one of the values in y
+
+```{r}
+nov_dec <- filter(flights, month %in% c(11, 12))
+nov_dec
+```
+
+
+```{r}
+filter(flights, !(arr_delay > 120 | dep_delay > 120))
+```
+
+#### Missing Values
+
+```{r}
+x <- NA
+is.na(x)
+```
+
+```{r}
+df <- tibble(x = c(1, NA, 3))
+
+filter(df, is.na(x) | x > 1)
+```
+
+### Arrange
+
+arrange() takes a data frame and a set of column names to order by.
+
+```{r}
+arrange(flights, year, month, day)
+```
+
+desc() to re-order by a column in descending order.
+
+```{r}
+arrange(flights, desc(dep_delay))
+```
+
+
+### Select
+
+select() allows you to rapidly zoom in on a useful subset using operations based on the names of the variables.
+
+```{r}
+select(flights, year, month, day)
+```
+
+
+```{r}
+#select all columns between year and day.
+select(flights, year:day)
+```
+
+
+```{r}
+#select all columns except those from year to day
+select(flights, -(year:day))
+```
+
+
+
+```{r}
+#everything() moves some variables to the start of the data frame
+select(flights, time_hour, air_time, day, everything())
+```
+
+
+### Mutate
+
+mutate() always adds new columns at the end of the dataset.
+
+```{r}
+flights_sml <- select(flights, 
+  year:day, 
+  ends_with("delay"), 
+  distance, 
+  air_time
+)
+
+mutate(flights_sml,
+  gain = dep_delay - arr_delay,
+  speed = distance / air_time * 60
+)
+```
+
+If you only want to keep the new variables, use transmute().
+
+```{r}
+transmute(flights,
+  gain = dep_delay - arr_delay,
+  hours = air_time / 60,
+  gain_per_hour = gain / hours
+)
+```
+
+```{r}
+transmute(flights,
+  dep_time,
+  hour = dep_time %/% 100,
+  minute = dep_time %% 100
+)
+```
+
+
+```{r}
+(x <- 1:10)
+lag(x)
+lead(x)
+```
+
+
+```{r}
+cumsum(x)
+#cumulative means
+cummean(x)
+```
+
+### Summarise
+
+summarise() collapses a data frame to a single row.
+
+```{r}
+summarise(flights, delay = mean(dep_delay, na.rm = TRUE))
+```
+
+```{r, warning=FALSE, error=FALSE, message=FALSE}
+by_day <- group_by(flights, year, month, day)
+summarise(by_day, delay = mean(dep_delay, na.rm = TRUE))
+```
+
+
+#### Combining multiple operations with the pipe(%>%)
+
+```{r, message=FALSE}
+flights %>% 
+  group_by(year, month, day) %>% 
+  summarise(mean = mean(dep_delay, na.rm = TRUE))
+```
+
+- Counts
+- Useful Summary Functions
+- Grouping by multiple variables
+- Ungrouping
+
