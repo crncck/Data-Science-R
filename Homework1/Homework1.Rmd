@@ -1,0 +1,174 @@
+---
+title: "CENG 4515 DATA SCIENCE AND ANALYTICS"
+author: "Ayşe Ceren Çiçek"
+output: 
+  pdf_document: default
+  html_document: default
+  word_document: default
+subtitle: HOMEWORK - 1
+font-family: Gill Sans
+---
+
+Dataset: https://www.kaggle.com/sootersaalu/amazon-top-50-bestselling-books-2009-2019
+
+The dataset is Amazon's Top 50 bestselling books from 2009 to 2019 from Kaggle. Contains 550 rows and 7 columns, books have been categorized into fiction and non-fiction. Column informations are listed down below:
+
+- Name: Name of the book
+
+- Author: The author of the book
+
+- User Rating: Amazon user rating
+
+- Reviews: Number of written reviews on Amazon
+
+- Price: The price of the book (As at 13/10/2020)
+
+- Year: The year(s) it ranked on the bestseller
+
+- Genre: Whether fiction or non-fiction
+
+
+## Importing libraries
+
+```{r, warning=FALSE,message=FALSE,error=FALSE, results='hide'}
+library(tidyverse)
+library(plyr)
+library(ggplot2)
+```
+
+## Loading dataset
+
+```{r}
+# Load dataset
+dataset <- read.csv('/Users/cerencicek/Documents/School/2-Data Science/Homework/bestselling_books.csv')
+
+# Show first 5 columns of the data
+head(dataset, n=5)
+```
+
+# Data preprocessing
+
+Let's summarize our data.
+
+```{r}
+summary(dataset)
+```
+
+As seen above the data types of Name and Author columns are Character. To get more accurate information about the data types of the rest of the columns, we can use sapply function. The sapply function is a vectorized function that allows you to iterate over a list or vector without the need of using the for loop. The below code shows the data types of each column.
+
+```{r}
+sapply(dataset, class)
+```
+
+The data type of the Genre column is character but it contains categorical data. We can use as.factor function to turn it into factor.
+
+```{r}
+dataset <- transform(dataset, Genre = as.factor(mapvalues(Genre,c("Non Fiction","Fiction"), c("Non-Fiction", "Fiction"))))
+summary(dataset)
+```
+Now our Genre column turn into factor which contains two categories, Fiction and Non-Fiction.
+
+```{r}
+sapply(dataset, class)
+```
+
+## Data Transformation 
+
+### Filter
+
+The filter() function is used to subset a data frame, retaining all rows that satisfy conditions. We can reach the books of an author. For example, the below code's output shows the books of George Orwell from our data.
+
+```{r}
+filter(dataset, Author == 'George Orwell')
+```
+
+We can filter books by their name.
+
+```{r}
+filter(dataset, Name == 'A Man Called Ove: A Novel')
+```
+
+We can also use the filter function with more than one condition. Let's get the bestseller fiction books of 2012 which has ratings greater than 4.5
+
+```{r}
+filter(dataset, User.Rating > 4.5, Genre == 'Fiction', Year == 2012)
+```
+
+We can also use the | (or) and & (and) operator to define an interval.
+
+```{r}
+filter(dataset, User.Rating > 4.5 & User.Rating < 4.8 , Year == 2015)
+```
+
+
+### Arrange
+
+The arrange function orders rows by variables.
+
+In the example down below, we sorted rows by Year, Price, and User Rating columns. 
+
+```{r}
+dataset <- arrange(dataset, Year, Price, User.Rating)
+head(dataset)
+```
+
+We can also sort the values in descending order.
+
+```{r}
+head(arrange(dataset, desc(User.Rating)))
+```
+
+### Select
+
+The select function only keeps the variables we mention. The below code returns data with 4 columns.
+
+```{r}
+head(select(dataset, Name, Author, User.Rating, Year))
+```
+
+We can take out a subset of columns using hyphen (-) and colon (:).
+
+```{r}
+head(select(dataset, -(Reviews:Price)))
+```
+
+If we use everything() parameter in the select function, we will get a subset of data that takes out all data instead of mentioned columns.
+
+```{r}
+head(select(dataset, User.Rating, Year, Author, everything()))
+```
+
+
+## Data Visualization
+
+The below plot displays the number of books based on their genres using a bar chart.The bestseller books are more in the non-fiction category.
+
+```{r}
+ggplot(dataset, aes(x=Genre, fill=Genre))+
+  geom_bar() + labs(title = "Genre", x="Genre", y="Count")
+```
+
+Let's visualize user ratings of books based on their genre with box plot. It seems that fiction books got a bit higher ratings from users than non-fiction books.
+
+```{r}
+ggplot(dataset, aes(x=Genre, y=User.Rating, color= Genre)) + 
+  geom_boxplot(outlier.size=2) + stat_summary(fun=mean, geom="point", shape=6, size=2) +
+  labs(title = "User Ratings Based on Genre",x= "Genre",y= "User Ratings")
+```
+
+To display the total number of books by their category based on years,  we should turn year to factor. In 2015, more non-fiction books looks in bestsellers, and in 2014 it is vice versa. 
+
+```{r}
+dataset$Year.Factor <- as.factor(dataset$Year)
+ggplot(dataset, aes(x=Year.Factor, fill=Genre))+
+  geom_bar() + 
+  labs(title = "Genre Based on Years",x= "Year",y= "Count")
+```
+
+The below plot shows the relation between the number of reviews and the price based on genre. 
+
+```{r}
+ggplot(data = dataset) + 
+  geom_point(mapping = aes(x = Price, y = Reviews, color=Genre))
+```
+
