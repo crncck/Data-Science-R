@@ -1,0 +1,425 @@
+---
+title: "DATA SCIENCE AND ANALYTICS"
+author: "Ayşe Ceren Çiçek"
+output: 
+  pdf_document: default
+  html_document: default
+  word_document: default
+subtitle: Week 1
+font-family: Gill Sans
+---
+
+# Data Visualization
+
+Most of the code examples written down below, taken from this website https://r4ds.had.co.nz/data-visualisation.html
+
+<script type="text/javascript">
+  // When the document is fully rendered...
+  $(document).ready(function() {
+    // ...select all header elements...
+    $('h1, h2, h3, h4, h5').each(function() {
+      // ...and add an id to them corresponding to their 'titles'
+      $(this).attr('id', $(this).html());
+    });
+  });
+</script>
+
+## TABLE OF CONTENTS
+
+
+- <a href="#Import the library">Importing Libraries</a><br>
+- <a href="#Dataset">Dataset Informations</a><br>
+- <a href="#Plotting with ggplot">Plotting</a><br>
+  - <a href="#Exercises">Exercises</a><br>
+- <a href="#Aesthetic Mappings">Aesthetic Mappings</a><br>
+  - <a href="#Exercises 2">Exercises</a><br>
+- <a href="#Facets">Facets</a><br>
+- <a href="#Geometric Objects">Geometric Objects</a><br>
+- <a href="#Statistical Transformations">Statistical Transformations</a><br>
+- <a href="#Position Adjustments">Position Adjustments</a><br>
+- <a href="#Coordinate Systems">Coordinate Systems</a><br>
+
+## Import the library
+
+You only need to install a package once, but you need to reload it every time you start a new session.
+
+```{r, warning=FALSE,message=FALSE,error=FALSE, results='hide'}
+#install.packages("tidyverse") to install package
+library(tidyverse)
+```
+
+## Dataset
+
+A data frame is a rectangular collection of variables (in the columns) and observations (in the rows).
+
+We will use mgs dataset which contains contains a subset of the fuel economy data and only models which had a new release every year between 1999 and 2008.
+
+```{r}
+mpg
+```
+
+The columns of the data set are:
+
+- manufacturer: manufacturer name
+
+- model: model name
+
+- displ: engine displacement, in liters
+
+- year: year of manufacture
+
+- cyl: number of cylinders
+
+- trans: type of transmission
+
+- drv: the type of drive train, where f = front-wheel drive, r = rear wheel drive, 4 = 4wd
+
+- cty: city miles per gallon
+
+- hwy: highway miles per gallon (a car’s fuel efficiency on the highway)
+
+- fl: fuel type
+
+- class: "type" of car
+
+
+## Plotting with ggplot
+
+```{r}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy)) + 
+  labs(title = "Fuel Efficiency based on Engine Size",x= "Engine Size",y= "Fuel Efficiency")
+
+```
+
+We can see that there is a negative relationship between engine size and fuel efficiency. Which means cars with big engines consumes more fuel.
+
+
+## Exercises
+
+### 1) Run ggplot(data = mpg). What do you see?
+
+```{r}
+ggplot(data = mpg)
+```
+
+It shows an empty plot.
+
+
+### 2) How many rows are in mtcars? How many columns?
+
+```{r}
+nrow(mtcars)
+ncol(mtcars)
+```
+mtcars dataset contains 32 rows and 11 columns.
+
+
+### 3) What does the drv variable describe? Read the help for ?mpg to find out.
+
+```{r}
+help(mpg)
+```
+
+drv variable describes the type of drive train, where f = front-wheel drive, r = rear wheel drive, 4 = 4wd.
+
+
+### 4) Make a scatterplot of hwy versus cyl.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = hwy, y = cyl))
+```
+
+### 5) What happens if you make a scatterplot of class versus drv? Why is the plot not useful?
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = class, y = drv))
+```
+
+We can not define a relationship. 
+
+<br>
+
+## Aesthetic Mappings
+
+Aesthetic mappings describe how variables in the data are mapped to visual properties (aesthetics) of geoms. We can change point's size, shape and color.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy, color = class))
+```
+
+This plot maps colors of the points to classes. we can see which color corresponds to which class on the legend. For example, pink points represents the class suv.
+
+We can map classes to size aesthetic. But mapping an unordered variable (class) to an ordered aesthetic (size) is not recommended.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy, size = class))
+```
+
+We can also map class to the alpha aesthetic, which helps us to change the transparency or the shape of the points.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy, alpha = class))
+```
+
+The shape can group maximum 6 classes, so the additional groups like suv class will not be plotted.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy, shape = class))
+```
+
+With color parameter, we can change the colors of the points.
+
+```{r}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy), color = "blue")
+```
+
+## Exercises 2
+
+### 1) What’s gone wrong with this code? Why are the points not blue?
+
+```{r}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy, color = "blue"))
+```
+The color does not convey information about a variable, it changes the appearance of the plot. We should write color outside of the aes function.
+
+
+### 3) Which variables in mpg are categorical? Which variables are continuous? 
+
+(Hint: type ?mpg to read the documentation for the dataset.) How can you see this information when you run mpg?
+
+```{r}
+summary(mpg)
+```
+
+6 variables are categorical which are manufacturer, model, trans, drv, fl, class.
+
+
+<br>
+
+## Facets
+
+For categorical variables, we can split our plot into facets, which are subplots that each display one subset of the data.
+
+facet_wrap() function facets the plot by a single variable.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy)) +
+  facet_wrap(~ class, nrow = 2)
+```
+
+facet_grid() facets your plot on the combination of two variables.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy)) +
+  facet_grid(drv ~ cyl)
+```
+
+To not facet in the rows or columns dimension, use a . instead of a variable name.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy)) +
+  facet_grid(. ~ cyl)
+```
+
+## Geometric Objects
+
+A geom is the geometrical object that a plot uses to represent data. To change the geom in your plot, change the geom function that you add to ggplot().
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy))
+```
+
+```{r}
+ggplot(data = mpg) +
+  geom_smooth(mapping = (aes(x = displ, y = hwy)))
+```
+
+The below plot shows that geom_smooth() separates the cars into three lines based on their drv value, which describes a car’s drivetrain.
+
+```{r}
+ggplot(data = mpg) +
+  geom_smooth(mapping = (aes(x = displ, y = hwy, linetype = drv)))
+```
+
+```{r}
+ggplot(data = mpg) +
+geom_smooth(mapping = aes(x = displ, y = hwy, group = drv))
+```
+
+```{r}
+ggplot(data = mpg) + geom_smooth(mapping = aes(x = displ, y = hwy, color = drv), show.legend = FALSE )
+```
+
+To display multiple geoms in the same plot, we should add multiple geom functions.
+
+```{r}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy)) + 
+  geom_smooth(mapping = aes(x = displ, y = hwy))
+```
+
+But the code above, includes some duplication. When you want to change y-axis you should change it in both of the geom_functions. To avoid this we can pass set of mappings to ggplot(). The output plot will be same with the previous one.
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point() +
+  geom_smooth()
+```
+
+If we add mappings to geom functions, ggplot2 will use these mappings to extend or overwrite the global mappings.
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point(mapping = aes(color = class)) +
+  geom_smooth()
+```
+
+You can use same thing to specify different data for each layer.
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + 
+  geom_point(mapping = aes(color = class)) + 
+  geom_smooth( data = filter(mpg, class == "subcompact"), se = FALSE )
+```
+
+## Statistical Transformations
+
+```{r}
+summary(diamonds)
+```
+
+```{r}
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut))
+```
+
+This plot also shows count variable which is not variable in diamonds. Many graphs, like scatterplots, plot the raw values of your dataset. Other graphs, like bar charts, calculate new values to plot.
+
+The algorithm used to calculate new values for a graph is called a stat, short for statistical transformation.
+
+We can plot the same plot as the previous one with stat_count().
+
+```{r}
+ggplot(data = diamonds) + 
+  stat_count(mapping = aes(x = cut))
+```
+
+This works because every geom has a default stat, and every stat has a default geom.
+
+To display a bar chart of proportion, rather than count.
+
+```{r}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = ..prop.., group = 1) )
+```
+
+stat_summary() summarizes the y values for each unique x value, to draw attention to the summary that is being computed.
+
+```{r}
+ggplot(data = diamonds) + 
+  stat_summary(mapping = aes(x = cut, y = depth), fun.min = min, fun.max = max, fun = median)
+```
+
+
+## Position Adjustments
+
+You can color a bar chart using either the color aesthetic, or more usefully, fill.
+
+```{r}
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, color = cut))
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, fill = cut))
+```
+
+If you map the fill aesthetic to another variable, like clarity: the bars are automatically stacked. Each colored rectangle represents a combination of cut and clarity.
+
+```{r}
+ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, fill = clarity))
+```
+
+The stacking is performed automatically by the position adjustment specified by the position argument. If you don’t want a stacked bar chart, you can use one of three other options: "identity", "dodge" or "fill".
+
+```{r}
+ggplot(data = diamonds, mapping = aes(x = cut, fill = clarity)) +
+  geom_bar(alpha = 1/5, position = "identity")
+
+ggplot(data = diamonds, mapping = aes(x = cut, color = clarity)) +
+  geom_bar(fill = NA, position = "identity")
+```
+
+
+```{r}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = clarity), position = "fill")
+```
+
+```{r}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = clarity), position = "dodge")
+```
+
+There’s one other type of adjustment that’s not useful for bar charts, but it can be very useful for scatterplots. On one of the previous plot was displaying only 126 points, even though there were 234 observations in the dataset. It is because the values of hwy and displ are rounded so the points appear on a grid and many points overlap each other. This problem is known as overplotting. You can avoid this gridding by setting the position adjustment to “jitter.” position = "jitter" adds a small amount of random noise to each point. This spreads the points out because no two points are likely to receive the same amount of random noise.
+
+```{r}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy))
+```
+
+
+```{r}
+ggplot(data = mpg) + geom_point(mapping = aes(x = displ, y = hwy), position = "jitter")
+```
+
+
+## Coordinate Systems
+
+coord_flip() switches the x- and y-axes.
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = class, y = hwy)) + 
+  geom_boxplot()
+
+ggplot(data = mpg, mapping = aes(x = class, y = hwy)) + 
+  geom_boxplot() +
+  coord_flip()
+```
+
+coord_quickmap() sets the aspect ratio correctly for maps.
+
+```{r}
+nz <- map_data("nz")
+
+ggplot(nz, aes(long, lat, group = group)) +
+  geom_polygon(fill = "white", color = "black")
+
+ggplot(nz, aes(long, lat, group = group)) + 
+  geom_polygon(fill = "white", color = "black") + 
+  coord_quickmap()
+```
+
+coord_polar() uses polar coordinates. Polar coordinates reveal an interesting connection between a bar chart and a Coxcomb chart.
+
+```{r}
+bar <- ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = cut), show.legend = FALSE, width = 1) + 
+  theme(aspect.ratio = 1) + 
+  labs(x = NULL, y = NULL) 
+
+bar + coord_flip() 
+bar + coord_polar()
+```
