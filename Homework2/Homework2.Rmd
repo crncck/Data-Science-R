@@ -1,0 +1,317 @@
+---
+title: "CENG 4515 DATA SCIENCE AND ANALYTICS"
+author: "Ayşe Ceren Çiçek"
+output: 
+  html_document: default
+  pdf_document: default
+  word_document: default
+subtitle: HOMEWORK - 2
+font-family: Gill Sans
+---
+
+Dataset: https://www.kaggle.com/uciml/breast-cancer-wisconsin-data
+
+The columns are:
+
+- id: ID number
+
+- diagnosis: The diagnosis of breast tissues (M = malignant, B = benign)
+
+- radius_mean: mean of distances from center to points on the perimeter
+
+- texture_mean: standard deviation of gray-scale values
+
+- perimeter_mean: mean size of the core tumor
+
+And the other columns are: area_mean, smoothness_mean, compactness_mean, concavity_mean, concave points_mean, symmetry_mean, fractal_dimension_mean, radius_se, texture_se, perimeter_se, area_se, smoothness_se, compactness_se, concavity_se, concave points_se, symmetry_se, fractal_dimension_se, radius_worst, texture_worst, perimeter_worst, area_worst, smoothness_worst, compactness_worst, concavity_worst, concave points_worst, symmetry_worst, fractal_dimension_worst. 
+
+
+
+## Importing libraries
+
+```{r, warning=FALSE,message=FALSE,error=FALSE, results='hide'}
+library(tidyverse)
+library(plyr)
+library(ggplot2)
+library(gplots)
+library(caret)
+library(ROCR)
+library(logistf)
+library(PerformanceAnalytics)
+library(GGally)
+library(corrplot)
+library(pheatmap)
+library(factoextra)
+library(ggfortify)
+library(sparklyr)
+library(pipeR)
+```
+
+
+## Loading dataset
+
+```{r}
+# Load dataset
+data <- read.csv("data.csv")
+
+# Show first 5 columns of the data
+head(data, n=5)
+```
+
+
+
+# Data preprocessing
+
+Let's summarize our data.
+
+```{r}
+summary(data)
+```
+
+The original dataset does not contain the X columns we will remove it.
+
+```{r}
+data <- subset(data, select=-X)
+```
+
+
+```{r}
+# Check null values
+which(is.na(data))
+```
+
+We will remove id column and replace diagnosis values B with 0 and M with 1.
+
+```{r}
+data$id <- NULL
+data$diagnosis <- ifelse(data$diagnosis == "B", 0, 1)
+```
+
+Let's check column types.
+
+```{r}
+sapply(data, class)
+```
+All of the columns seems numeric so we can draw a heatmap.
+
+```{r}
+heatmap(cor(data[,-1]))
+```
+
+```{r}
+data_corr = cbind(diagnosis=data[,c(1)], data[,c(22:31)])
+```
+
+
+
+```{r, warning=FALSE}
+# Draw correlation matrix 
+ggcorr(data, nbreaks=8, label=TRUE, label_size=2, size = 1.8, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45) + ggtitle("Breast Cancer Correlation Matrix")
+corr_data = cor(data)
+
+corr_data = round(corr_data, 4)
+
+# Remove low relationship
+corr_data[abs(corr_data) < 0.7] = NA 
+
+# Drop duplicates and meaningless information
+corr_data[lower.tri(corr_data, diag = TRUE)] = NA  
+
+# Turn it into a 3-column table
+corr_data=as.data.frame(as.table(corr_data))  
+corr_data=na.omit(corr_data) 
+
+#Sort by highest correlation
+corr_data=corr_data[order(-abs(corr_data$Freq)),]    
+corr_data
+```
+
+## Building a logistic regression model (Base model)
+
+```{r}
+set.seed(123)
+
+# Train test split
+splitted<-createDataPartition(data$diagnosis, p=0.8, list=FALSE)
+
+# Train data
+X_train<-data[splitted,-1]
+y_train<-data$diagnosis[splitted] 
+
+# Test data
+X_test<-data[-splitted,-1]
+y_test<-data$diagnosis[-splitted]
+```
+
+
+```{r, warning=FALSE}
+# Logistic regression model with all variables
+model <- glm(formula = y_train ~ ., family = binomial, data = X_train)
+summary(model)
+```
+
+
+```{r}
+# Subset without correlated variables
+subset.data<-subset(data, select=-c(area_mean,radius_mean,area_worst,compactness_mean,perimeter_worst,compactness_se,concavity_worst,fractal_dimension_worst))
+```
+
+
+```{r}
+# Train data
+X_train<-subset.data[splitted,-1]
+y_train<-subset.data$diagnosis[splitted]
+
+# Test data
+X_test<-subset.data[-splitted,-1]
+y_test<-subset.data$diagnosis[-splitted]
+```
+
+
+```{r, warning=FALSE}
+# Logistic regression model without correlated variables
+model <- glm(formula = y_train ~ ., family = binomial, data = X_train)
+summary(model)
+```
+
+
+```{r, warning=FALSE}
+anova(model)
+```
+
+
+
+```{r}
+# Make predictions
+prediction <- ifelse(predict(object=model, newdata=X_test, type = "response") > 0.5, 1, 0)
+
+# Generate confusion matrix
+conf.matrix <- confusionMatrix(table(prediction, y_test), positive="1")
+conf.matrix
+```
+
+```{r}
+# Heatmap visualization of confusion matrix
+table <- data.frame(conf.matrix$table)
+
+plotTable <- table %>%
+  group_by(y_test) %>%
+  mutate(prop = Freq/sum(Freq))
+
+ggplot(data =  plotTable, mapping = aes(x = y_test, y = prediction, alpha = prop)) +
+  geom_tile(aes(fill = Freq), colour = "white") +
+  geom_text(aes(label = Freq), vjust = .5, fontface  = "bold", alpha = 1, color="white", size=10) +
+  scale_fill_gradient(low = "blue", high = "navyblue") +
+  theme_bw() + theme(legend.position = "none")
+
+```
+
+
+## Applying PCA
+
+```{r,  results='hide'}
+# Feature scaling
+scale(X_train)
+scale(X_test)
+```
+
+
+```{r,}
+# Apply PCA
+pca <- prcomp(X_train[,2:ncol(X_train)],center = TRUE, scale=TRUE)
+pca_test<-prcomp(X_test[,2:ncol(X_test)],center = TRUE, scale=TRUE)
+
+# Plot PCA
+plot(pca, type='l', main="PCA - Principal Components Analysis Chart", col="red")
+```
+
+```{r}
+#Get eigenvalues
+explained.variance <- pca$sdev^2
+explained.variance
+```
+
+
+```{r}
+# Plot PCA
+pca.var <- get_pca_var(pca)
+
+kmean <- kmeans(pca.var$coord, centers = 5, nstart=25)
+group <- as.factor(kmean$cluster)
+
+fviz_pca_var(pca, col.var=group, palette='jco', legend.title='Cluster')
+```
+
+
+```{r}
+# Plot PCA
+autoplot(pca, data = X_train)
+```
+
+## Building a logistic regression model on the transformed data
+
+
+```{r}
+# Logistic regression model
+model_pca <- glm(y_train ~ .-PC11 -PC6 -PC8 -PC10 -PC5 -PC9 -PC13 -PC14 -PC12 -PC7,family=binomial, data=pca$x[, c(1:14)] %>% data.frame())
+summary(model_pca)
+```
+
+
+```{r}
+# Make prediction
+prediction.pca <- ifelse(predict(model_pca) > 0.5,1,0)
+
+# Generate confusion matrix
+conf.matrix.pca <- confusionMatrix(table(prediction.pca, y_train), positive="1")
+conf.matrix.pca
+```
+
+```{r}
+conf.matrix.pca$table
+```
+
+
+```{r}
+# Heatmap visualization of the confusion matrix
+table.pca <- data.frame(conf.matrix.pca$table)
+
+plotTablePCA <- table.pca %>%
+  group_by(y_train) %>%
+  mutate(prop = Freq/sum(Freq))
+
+ggplot(data =  plotTablePCA, mapping = aes(x = prediction.pca, y = y_train, alpha = prop)) +
+  geom_tile(aes(fill = Freq), colour = "white") +
+  geom_text(aes(label = Freq), vjust = .5, fontface  = "bold", alpha = 1, color="white", size=10) +
+  scale_fill_gradient(low = "blue", high = "navyblue") +
+  theme_bw() + theme(legend.position = "none")
+
+```
+
+
+
+## Building a machine learning Pipeline
+
+
+```{r, warning=FALSE, error=FALSE}
+X_train_scaled = scale(X_train)
+log.rec.model <- trainControl(method = "glm")
+pca.model <- trainControl(method = "prcomp")
+
+#log_reg_model <-  pipeline(X_train_scaled, pca.model, log.rec.model)
+
+
+#sc <- spark_connect(master = "local", spark_version = "2.2.0")
+
+
+# pipeline <- ml_pipeline(sc) %>%
+#   ft_dplyr_transformer(
+#     tbl = pca
+#     ) %>% 
+#   ml_logistic_regression()
+```
+
+
+
+
