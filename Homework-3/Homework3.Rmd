@@ -1,0 +1,188 @@
+---
+title: "CENG 4515 DATA SCIENCE AND ANALYTICS"
+author: "Ayşe Ceren Çiçek"
+output: 
+  html_document: default
+  pdf_document: default
+  word_document: default
+subtitle: HOMEWORK - 3
+font-family: Gill Sans
+---
+
+Dataset: Iris Flower Dataset
+
+The columns are: 
+
+- Sepal Length: length of the sepal
+
+- Sepal Width: width of the sepal
+
+- Petal Length: length of the petal
+
+- Petal Width: width of the petal
+
+- Species: species name (Setosa, Versicolor, Virginica)
+
+
+## Importing libraries
+
+```{r, warning=FALSE,message=FALSE,error=FALSE, results='hide'}
+#install.packages('caTools')
+library(ggplot2)
+library(dplyr)
+library(factoextra)
+library(cluster)
+library(caTools)
+library(stats)
+library(caret)
+library(plyr)
+```
+
+## Dataset
+
+The dataset is Iris dataset which contains four features (length and width of sepals and petals) of 50 samples of three species of Iris flower (setosa, virginica and versicolor).
+
+```{r}
+data(iris)
+summary(iris)
+```
+We can visualize the sepal width vs sepal length according to species.
+
+```{r}
+ggplot(data = iris) + 
+  geom_point(mapping = aes(x = Sepal.Length, y = Sepal.Width, color=Species))
+```
+
+As we can see above, the flowers which have longer sepals are mostly from the virginica species. And those which have wider sepals are mostly from the setosa species. 
+
+## Apply Principal Component Analysis
+
+PCA is an unsupervised algorithm that is used for dimensionality reduction. 
+
+Its goal is to identify and detect the correlation between variables. It is attempting to learn about relationship between values by finding a list of principal axes and it projects high dimensional data into smaller dimensional subspace while keeping most of the information.
+
+Using pca we will try to reduce the dimensionality of this dataset and get new dimensions which represents most of our data. It contains 5 dimensions(4 independent variables). Our dependent variable is Species.
+
+```{r}
+pca <- prcomp(iris[,-5],center = T, scale. = T)
+pca
+```
+
+```{r}
+summary(pca)
+```
+
+As seen above, Principle Component 1 (PC1) explains 73% of the total variation in the data set, while PC2 explains 23%. Overall, just PC1 and PC2 can explain 96% of the variance.
+
+Let's visualize variance of each component.
+
+```{r}
+plot(pca, main="Principal Component Analysis")
+```
+
+Plot 2-D PCA plot using fviz_pca_ind function.
+
+```{r}
+fviz_pca_ind(pca, label = "none", habillage = iris$Species, palette = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             addEllipses = TRUE) + labs(title = "Principal Component Analysis")
+```
+
+PCA is unsupervised learning it does not consider the dependent variable. So we will remove the dependent variable which is the last column Species from our data.
+
+```{r}
+iris_transform = as.data.frame(-pca$x[,1:2])
+head(iris_transform, n=5)
+```
+
+
+## Elbow method
+
+We are going to use the Elbow Method to decide the optimal number of clusters.
+
+```{r}
+fviz_nbclust(iris_transform, kmeans, method = 'wss')
+```
+
+In cluster analysis, the elbow method is used to determine the number of clusters in a data set. The method consists of plotting the explained variation as a function of the number of clusters, and picking the elbow of the curve as the number of clusters to use.
+
+In this data set, we use k =3 because at the value k= 3 there is no significant change in total within sum of square. Now we can apply k-means to cluster the data.
+
+## K-Means Clustering
+
+```{r}
+set.seed(102)
+model = kmeans(iris_transform, centers = 3, nstart = 50)
+```
+
+Now we have a clustering model which splits our data into 3 clusters. 
+
+```{r}
+model
+```
+
+We can visualize our clusters.
+
+```{r}
+fviz_cluster(model, data = iris_transform)
+```
+
+To compose a table for predicted and actual values of the species, we will first store actual species in true.values.
+
+```{r}
+true.values <- iris[5]$Species
+true.values
+```
+We can reach which cluster each data point belongs to with model$cluster and we can store them in kmeans.predicted value.
+
+```{r}
+kmeans.predicted <- c("versicolor","setosa","virginica")[model$cluster]
+kmeans.predicted
+```
+As the table shows, the model clustered all the setosa species correctly. But it clustered 36 virginica and 39 versicolor wrong. 
+
+```{r}
+table(true=true.values,pred=kmeans.predicted)
+```
+
+## Agglomerative Hierarchical Clustering
+
+First we will compute dissimilarity matrix with dist function using euclidean distance.
+
+```{r}
+# Dissimilarity matrix
+d <- dist(iris_transform, method = "euclidean")
+```
+
+Now we can feed these values into our hierarchical clustering model.
+
+```{r}
+hc <- hclust(d, method = "average" )
+```
+
+We will plot the dendogram as seen below.
+
+```{r}
+plot(hc, cex = 0.6, hang = -1)
+```
+
+Using cutree function we will cut the dendrogram from height 3. Also, we will assign the actual values of the species to compare easily with actual values.
+
+```{r}
+hc <- c("setosa","versicolor","virginica")[cutree(hc, h = 3)]
+hc
+```
+
+
+```{r}
+iris_transform %>%
+  mutate(cluster = hc) %>%
+  head
+```
+The table down below shows the actual and the predicted values of the species. According to it, the model clustered setosa and versicolor species as their actual classes but it did not cluster any of the data points of the virginica species with their correct class.
+
+```{r}
+table <- table(true=true.values,pred=hc)
+table
+```
+
+
